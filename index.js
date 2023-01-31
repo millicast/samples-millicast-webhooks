@@ -2,24 +2,28 @@ const Config = require('config');
 const Crypto = require('crypto');
 const Express = require('express');
 const Fs = require('fs');
+const FsA = Fs.promises;
 const Http = require('http');
+const Os = require('os');
+const Path = require('path');
 const Util = require('util');
 
 const httpConfig = Config.util.toObject(Config.get('http'));
 // remove null entries
 Object.entries(httpConfig).forEach(([ key, val ]) => val === null ? delete httpConfig[key] : null);
-const webhookSecret = Buffer.from(Config.get('millicast.webhookSecret'), 'base64');
 
-process.on('exit', async (_code) => {
-  await socketCleanupAsync(httpConfig?.path);
-});
+let thumbnailDir = Config.get('millicast.thumbnailDir');
+if (!thumbnailDir) {
+  thumbnailDir = Fs.mkdtempSync(Path.join(Os.tmpdir(), Path.sep, 'webhook-thumbnails_'));
+}
+const webhookSecret = Buffer.from(Config.get('millicast.webhookSecret'), 'base64');
 
 async function mainAsync() {
   const httpServer = Http.createServer();
 
   httpServer.on('error', (err) => {
     console.error(`Http server error. ${err.stack}`);
-    process.exit(1);
+    gracefulExit('HTTP_ERROR');
   });
 
   const expressApp = new Express();
@@ -48,7 +52,14 @@ async function mainAsync() {
         // operate on webhook data
         console.log('EVENT:', Util.inspect(webhookEvent, false, null, true));
       } else {
+        const thumbTimestamp = req.get('X-Millicast-Timestamp');
+        const thumbFeedId = req.get('X-Millicast-Feed-Id');
+        // const thumbStreamId = req.get('X-Millicast-Stream-Id');
         console.log('THUMB SIZE:', body.length);
+        FsA.writeFile(Path.join(thumbnailDir, `${thumbFeedId}_${thumbTimestamp}.jpg`), body)
+          .catch((err) => {
+            console.error(`Error writing thumbnail: ${err.stack}`);
+          });
       }
 
       res.status(200).send('OK');
@@ -64,6 +75,7 @@ async function mainAsync() {
 
     httpServer.close(() => {
       console.log('Http server shutdown');
+      socketCleanup();
     });
   }
 
@@ -72,30 +84,21 @@ async function mainAsync() {
   stopSignals.forEach((signal) => process.on(signal, () => gracefulExit(signal)));
 }
 
-async function socketCleanupAsync(socketPath) {
-  await unlinkAsync(socketPath);
-}
-
-async function unlinkAsync(path, throwIfDNE = false) {
-  return new Promise((resolve, reject) => {
-    Fs.unlink(path, (err) => {
-      if (err) {
-        // ignore error if file does not exist
-        if (err.code === 'ENOENT' && !throwIfDNE) {
-          resolve(false);
-        } else {
-          // else reject
-          reject(err);
-        }
+function socketCleanup() {
+  if (httpConfig.path) {
+    try {
+      Fs.unlinkSync(httpConfig.path);
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        // ignore if file does not exist
         return;
       }
-
-      resolve(true);
-    });
-  });
+      console.error(`Error cleaning up unix socket: ${err.stack}`);
+    }
+  }
 }
 
 mainAsync()
   .catch((err) => {
-    console.error(err);
+    console.error(err.stack);
   });
