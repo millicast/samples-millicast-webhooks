@@ -14,7 +14,7 @@ Object.entries(httpConfig).forEach(([ key, val ]) => val === null ? delete httpC
 
 let thumbnailDir = Config.get('millicast.thumbnailDir');
 if (!thumbnailDir) {
-  thumbnailDir = Fs.mkdtempSync(Path.join(Os.tmpdir(), Path.sep, 'webhook-thumbnails_'));
+  thumbnailDir = Fs.mkdtempSync(Path.join(Os.tmpdir(), 'webhook-thumbnails_'));
 }
 const webhookSecret = Buffer.from(Config.get('millicast.webhookSecret'), 'base64');
 
