@@ -38,11 +38,9 @@ async function mainAsync() {
 
       const calculatedSignature = 'sha1=' + Crypto.createHmac('sha1', webhookSecret).update(body).digest('hex');
       const headerSignature = req.get('X-Millicast-Signature');
-      console.log('header', headerSignature);
-      console.log('calculated', calculatedSignature);
 
       if (calculatedSignature !== headerSignature) {
-        console.warn('Invalid signature sent to us, unsafe data');
+        console.warn(`Invalid signature sent to us, unsafe data. HeaderSignature: ${headerSignature}. CalculatedSignature: ${calculatedSignature}. Body: ${body.toString()}`);
         res.status(400).send('BAD');
         return;
       }
@@ -54,8 +52,8 @@ async function mainAsync() {
       } else {
         const thumbTimestamp = req.get('X-Millicast-Timestamp');
         const thumbFeedId = req.get('X-Millicast-Feed-Id');
-        // const thumbStreamId = req.get('X-Millicast-Stream-Id');
-        console.log('THUMB SIZE:', body.length);
+        const thumbStreamId = req.get('X-Millicast-Stream-Id');
+        console.log(`Timestamp: ${thumbTimestamp}. FeedId: ${thumbFeedId}. StreamId: ${thumbStreamId}. ThumbnailSize: ${body.length}`);
         FsA.writeFile(Path.join(thumbnailDir, `${thumbFeedId}_${thumbTimestamp}.jpg`), body)
           .catch((err) => {
             console.error(`Error writing thumbnail: ${err.stack}`);
