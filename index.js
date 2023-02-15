@@ -40,7 +40,9 @@ async function mainAsync() {
       const headerSignature = req.get('X-Millicast-Signature');
 
       if (calculatedSignature !== headerSignature) {
-        console.warn(`Invalid signature sent to us, unsafe data. HeaderSignature: ${headerSignature}. CalculatedSignature: ${calculatedSignature}. Body: ${body.toString()}`);
+        console.warn('Invalid signature sent to us, unsafe data. ' +
+          `HeaderSignature: ${headerSignature}. CalculatedSignature: ${calculatedSignature}. ` +
+          `IsThumbnail: ${isThumbnail}}. Body: ${isThumbnail ? 'binary data': body.toString()}`);
         res.status(400).send('BAD');
         return;
       }
