@@ -30,6 +30,7 @@ async function mainAsync() {
   httpServer.addListener('request', /** @type{RequestListener} */expressApp);
 
   expressApp.use((req, res, _next) => {
+    const now = new Date();
     const isThumbnail = req.is('image/jpeg');
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
@@ -50,12 +51,13 @@ async function mainAsync() {
       if (!isThumbnail) {
         const webhookEvent = JSON.parse(body.toString());
         // operate on webhook data
-        console.log('EVENT:', Util.inspect(webhookEvent, false, null, true));
+        console.log(`DeliveredOn: ${now.toISOString()}. Event:`, Util.inspect(webhookEvent, false, null, true));
       } else {
         const thumbTimestamp = req.get('X-Millicast-Timestamp');
         const thumbFeedId = req.get('X-Millicast-Feed-Id');
         const thumbStreamId = req.get('X-Millicast-Stream-Id');
-        console.log(`Timestamp: ${thumbTimestamp}. FeedId: ${thumbFeedId}. StreamId: ${thumbStreamId}. ThumbnailSize: ${body.length}`);
+        console.log(`DeliveredOn: ${now.toISOString()}. GeneratedOn: ${(new Date(Number(thumbTimestamp))).toISOString()}. ` +
+          `FeedId: ${thumbFeedId}. StreamId: ${thumbStreamId}. ThumbnailSize: ${body.length}`);
         FsA.writeFile(Path.join(thumbnailDir, `${thumbFeedId}_${thumbTimestamp}.jpg`), body)
           .catch((err) => {
             console.error(`Error writing thumbnail: ${err.stack}`);
